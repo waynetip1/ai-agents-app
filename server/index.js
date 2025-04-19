@@ -13,23 +13,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 🧠 Basic GPT test route
-app.post("/api/agent", async (req, res) => {
-  const { prompt } = req.body;
-
-  try {
-    const chat = await openai.chat.completions.create({
-      model: "gpt-4-1106-preview",
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    res.json({ response: chat.choices[0].message.content });
-  } catch (err) {
-    console.error("OpenAI error:", err);
-    res.status(500).json({ error: "Failed to get response from OpenAI." });
-  }
-});
-
 // ✅ Start server
 app.listen(3001, () => console.log("✅ Server running on http://localhost:3001"));
 
@@ -40,7 +23,7 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_REDIRECT_URI
 );
 
-// Step 1: Redirect user to Gmail consent screen
+// 👉 Step 1: Redirect to consent screen
 app.get("/auth/google", (req, res) => {
   const scopes = [
     "https://www.googleapis.com/auth/gmail.modify",
@@ -56,7 +39,7 @@ app.get("/auth/google", (req, res) => {
   res.redirect(authUrl);
 });
 
-// Step 2: Handle callback and fetch tokens
+// 👉 Step 2: Callback
 app.get("/auth/google/callback", async (req, res) => {
   const code = req.query.code;
 
@@ -69,8 +52,6 @@ app.get("/auth/google/callback", async (req, res) => {
 
     console.log("✅ Gmail Connected:");
     console.log("Email:", userInfo.data.email);
-    console.log("Access Token:", tokens.access_token);
-    console.log("Refresh Token:", tokens.refresh_token);
 
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
@@ -82,13 +63,12 @@ app.get("/auth/google/callback", async (req, res) => {
     });
 
     const messages = response.data.messages || [];
+    const emailSummaries = [];
 
     if (messages.length === 0) {
       console.log("No unread messages found.");
     } else {
       console.log(`Found ${messages.length} unread messages:`);
-
-      const emailSummaries = [];
 
       for (const msg of messages) {
         const msgData = await gmail.users.messages.get({
@@ -104,44 +84,23 @@ app.get("/auth/google/callback", async (req, res) => {
         const from = headers.find(h => h.name === "From")?.value || "(Unknown sender)";
         const date = headers.find(h => h.name === "Date")?.value || "(Unknown date)";
 
-        emailSummaries.push(`Subject: ${subject}\nFrom: ${from}\nDate: ${date}`);
+        const summary = { subject, from, date };
+        emailSummaries.push(summary);
+        console.log("🧾 Parsed message:", summary);
       }
-
-      // 🧠 Construct the GPT prompt
-      const prompt = `
-You are an AI inbox assistant. Analyze the following unread emails and suggest an action for each:
-- Archive
-- Reply
-- Ignore
-
-Respond in this JSON format:
-[
-  { "subject": "...", "action": "...", "reason": "..." }
-]
-
-Emails:
-${emailSummaries.join("\n\n")}
-`;
-
-      console.log("\n🧠 Prompt to GPT:\n", prompt);
-
-      const gptResponse = await openai.chat.completions.create({
-        model: "gpt-4-1106-preview",
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const aiReply = gptResponse.choices[0].message.content;
-      console.log("🔍 GPT Raw Reply:", aiReply);
     }
 
-    res.send("✅ Gmail connected! You can close this window.");
+    // ✅ Redirect to frontend with encoded summaries
+    const encoded = encodeURIComponent(JSON.stringify(emailSummaries));
+    res.redirect(`http://localhost:5173/?emails=${encoded}`);
+
   } catch (err) {
     console.error("❌ Error during Google auth:", err);
     res.status(500).send("Google Authentication Failed");
   }
 });
 
-// ✅ POST route for frontend GPT analysis
+// ✅ GPT Analyzer Endpoint
 app.post("/api/emails/analyze", async (req, res) => {
   const { emails } = req.body;
 
@@ -154,15 +113,25 @@ app.post("/api/emails/analyze", async (req, res) => {
   ).join("\n\n");
 
   const prompt = `
-You are an AI inbox assistant. Analyze the following unread emails and suggest an action for each:
-- Archive
-- Reply
-- Ignore
+You are an AI inbox assistant.
+Your task is to analyze unread email summaries and respond ONLY with a valid JSON array.
+Each object must include:
+- subject
+- from
+- date
+- action (Reply, Archive, or Ignore)
+- reason (short explanation)
 
-Only respond with a JSON array like this (no intro, no markdown):
+Do NOT include markdown formatting or backticks.
 
 [
-  { "subject": "..." , "action": "...", "reason": "..." }
+  {
+    "subject": "Example subject",
+    "from": "sender@example.com",
+    "date": "Mon, 1 Apr 2025 10:00:00 -0700",
+    "action": "Reply",
+    "reason": "Brief explanation of why"
+  }
 ]
 
 Emails:
