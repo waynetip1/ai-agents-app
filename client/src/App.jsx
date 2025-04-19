@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export default function App() {
+function App() {
   const [emails, setEmails] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,7 @@ export default function App() {
     setSuggestions([]);
 
     try {
-      const res = await fetch("http://localhost:3001/api/emails/analyze", {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/emails/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emails }),
@@ -35,14 +35,12 @@ export default function App() {
 
       const data = await res.json();
       let parsed;
-
       try {
         const cleaned = data.suggestions
           .replace(/^```json/, "")
           .replace(/^```/, "")
           .replace(/```$/, "")
           .trim();
-
         parsed = JSON.parse(cleaned);
       } catch (err) {
         console.error("❌ GPT returned invalid JSON:", data.suggestions);
@@ -59,58 +57,66 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans antialiased flex flex-col">
-      <header className="w-full px-6 py-4 shadow-sm border-b bg-white">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-indigo-600">📬 AI Inbox Agent</h1>
-          <span className="text-sm text-gray-500">v1.0</span>
-        </div>
+    <div className="min-h-screen bg-gray-950 text-white font-sans flex flex-col">
+      {/* Header */}
+      <header className="w-full px-6 py-4 border-b border-gray-800 flex items-center justify-between bg-gray-900/60 backdrop-blur-md">
+        <h1 className="text-2xl font-bold text-white tracking-tight">
+          📬 AI Inbox Agent
+        </h1>
+        <div className="text-sm text-gray-400 font-medium">v1.0</div>
       </header>
 
-      <main className="flex-grow px-6 py-12 max-w-5xl mx-auto w-full">
+      {/* Main Content */}
+      <main className="flex-grow px-4 sm:px-8 py-10 max-w-4xl mx-auto w-full">
         <div className="text-center mb-10">
-          <h2 className="text-4xl font-extrabold text-gray-800 mb-2">
+          <h2 className="text-3xl sm:text-4xl font-extrabold mb-3 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-500 text-transparent bg-clip-text">
             Clean your inbox. Automatically.
           </h2>
-          <p className="text-lg text-gray-500 max-w-xl mx-auto">
-            Get AI-powered suggestions to reply, archive, or ignore.
+          <p className="text-gray-400 text-lg max-w-xl mx-auto">
+            Get instant AI-powered suggestions for how to handle your unread emails — reply, archive, or ignore.
           </p>
-
           <button
             onClick={analyzeEmails}
-            className="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-full font-medium shadow transition"
+            className="mt-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-purple-600 hover:to-pink-600 transition-all px-8 py-3 rounded-full text-lg font-semibold shadow-md shadow-blue-700/30"
           >
             {loading ? "Analyzing..." : "Analyze Emails"}
           </button>
         </div>
 
+        {/* Results */}
         {suggestions.length > 0 && (
-          <div className="space-y-6">
+          <section className="space-y-8">
             {suggestions.map((s, i) => (
               <div
                 key={i}
-                className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
+                className="relative overflow-hidden p-6 rounded-2xl bg-gradient-to-br from-gray-800/70 via-gray-900/50 to-gray-950/80 border border-gray-700 shadow-xl hover:shadow-pink-500/20 transition-all duration-300 group"
               >
-                <p className="text-lg font-semibold text-gray-800">📨 {s.subject}</p>
-                <p className="text-sm text-gray-500 mb-3">
-                  <span className="font-medium">From:</span> {s.from} <br />
-                  <span className="font-medium">Date:</span> {s.date}
-                </p>
-                <p>
-                  ✅ <span className="text-green-600 font-medium">Action:</span> {s.action}
-                </p>
-                <p>
-                  💬 <span className="text-yellow-600 font-medium">Reason:</span> {s.reason}
-                </p>
+                <div className="absolute inset-0 blur-lg opacity-20 group-hover:opacity-30 transition-all bg-gradient-to-tr from-blue-500/20 via-purple-400/20 to-pink-500/20" />
+                <div className="relative z-10">
+                  <p className="text-2xl font-bold text-blue-300 mb-1">📨 {s.subject}</p>
+                  <p className="text-sm text-gray-400 mb-3">
+                    <span className="font-medium">From:</span> {s.from}<br />
+                    <span className="font-medium">Date:</span> {s.date}
+                  </p>
+                  <p className="mb-1">
+                    ✅ <span className="text-green-400 font-semibold">Action:</span> {s.action}
+                  </p>
+                  <p>
+                    💬 <span className="text-yellow-300 font-semibold">Reason:</span> {s.reason}
+                  </p>
+                </div>
               </div>
             ))}
-          </div>
+          </section>
         )}
       </main>
 
-      <footer className="text-center text-sm text-gray-400 py-6 border-t bg-white">
+      {/* Footer */}
+      <footer className="text-center text-gray-500 text-sm py-6 border-t border-gray-800">
         Built with ❤️ by You — 2025
       </footer>
     </div>
   );
 }
+
+export default App;
